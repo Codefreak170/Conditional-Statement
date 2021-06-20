@@ -1,5 +1,5 @@
 # Conditional-Statement
-Developed by Sarit Shekhar Roy (My Captain Challenge)
+Developed by Sarit Shekhar Roy 
 #include <stdio.h>
 
 int main()
