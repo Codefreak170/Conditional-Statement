@@ -1,0 +1,511 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Codefreak170/Conditional-Statement/blob/main/PPE%20detection%20\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "1KPHkmmm8bdc"
+      },
+      "outputs": [],
+      "source": [
+        "%%capture\n",
+        "!pip install super-gradients==3.1.0\n",
+        "!pip install imutils\n",
+        "!pip install roboflow\n",
+        "!pip install pytube --upgrade"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "FOZBHvKU999c"
+      },
+      "outputs": [],
+      "source": [
+        "!pip install super_gradients"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "33XwQOF79UqR"
+      },
+      "outputs": [],
+      "source": [
+        "from super_gradients.training import Trainer\n",
+        "from super_gradients.training import dataloaders\n",
+        "from super_gradients.training.dataloaders.dataloaders import coco_detection_yolo_format_train, coco_detection_yolo_format_val"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "JQAvBcG-9i9A"
+      },
+      "outputs": [],
+      "source": [
+        "from IPython.display import clear_output"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "IZX2xlCT9i_L"
+      },
+      "outputs": [],
+      "source": [
+        "from super_gradients.training.losses import PPYoloELoss\n",
+        "from super_gradients.training.metrics import DetectionMetrics_050\n",
+        "from super_gradients.training.models.detection_models.pp_yolo_e import PPYoloEPostPredictionCallback"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "hs4UiW-49jCp"
+      },
+      "outputs": [],
+      "source": [
+        "from super_gradients.training import models"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "2DVd4C6z9jLx"
+      },
+      "outputs": [],
+      "source": [
+        "CHECKPOINT_DIR = 'checkpoints2'\n",
+        "trainer = Trainer(experiment_name='ppe_yolonas_run2', ckpt_root_dir=CHECKPOINT_DIR)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "8kJvRNyxA_a4"
+      },
+      "outputs": [],
+      "source": [
+        "!pip install roboflow\n",
+        "\n",
+        "from roboflow import Roboflow\n",
+        "rf = Roboflow(api_key=\"IuYv6KOKs5p62rFSLvGa\")\n",
+        "project = rf.workspace(\"objet-detect-yolov5\").project(\"eep_detection-u9bbd\")\n",
+        "dataset = project.version(1).download(\"yolov5\")\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "9czElE1UA_eR"
+      },
+      "outputs": [],
+      "source": [
+        "dataset_params = {\n",
+        "    'data_dir':'/content/EEP_Detection-1',\n",
+        "    'train_images_dir':'train/images',\n",
+        "    'train_labels_dir':'train/labels',\n",
+        "    'val_images_dir':'valid/images',\n",
+        "    'val_labels_dir':'valid/labels',\n",
+        "    'test_images_dir':'test/images',\n",
+        "    'test_labels_dir':'test/labels',\n",
+        "    'classes': ['Protective Helmet', 'Shield', 'Jacket', 'Dust Mask', 'Eye Wear', 'Glove', 'Protective Boots']\n",
+        "}\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "A9BmTOsPA_sx"
+      },
+      "outputs": [],
+      "source": [
+        "train_data = coco_detection_yolo_format_train(\n",
+        "    dataset_params={\n",
+        "        'data_dir': dataset_params['data_dir'],\n",
+        "        'images_dir': dataset_params['train_images_dir'],\n",
+        "        'labels_dir': dataset_params['train_labels_dir'],\n",
+        "        'classes': dataset_params['classes']\n",
+        "    },\n",
+        "    dataloader_params={\n",
+        "        'batch_size':16,\n",
+        "        'num_workers':2\n",
+        "    }\n",
+        ")\n",
+        "\n",
+        "val_data = coco_detection_yolo_format_val(\n",
+        "    dataset_params={\n",
+        "        'data_dir': dataset_params['data_dir'],\n",
+        "        'images_dir': dataset_params['val_images_dir'],\n",
+        "        'labels_dir': dataset_params['val_labels_dir'],\n",
+        "        'classes': dataset_params['classes']\n",
+        "    },\n",
+        "    dataloader_params={\n",
+        "        'batch_size':16,\n",
+        "        'num_workers':2\n",
+        "    }\n",
+        ")\n",
+        "\n",
+        "test_data = coco_detection_yolo_format_val(\n",
+        "    dataset_params={\n",
+        "        'data_dir': dataset_params['data_dir'],\n",
+        "        'images_dir': dataset_params['test_images_dir'],\n",
+        "        'labels_dir': dataset_params['test_labels_dir'],\n",
+        "        'classes': dataset_params['classes']\n",
+        "    },\n",
+        "    dataloader_params={\n",
+        "        'batch_size':16,\n",
+        "        'num_workers':2\n",
+        "    }\n",
+        ")\n",
+        "\n",
+        "clear_output()\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "dmb-7tOGDzRn",
+        "outputId": "5be083f9-6ec7-42a5-ac82-9dade7a7efba"
+      },
+      "outputs": [
+        {
+          "data": {
+            "text/plain": [
+              "[DetectionMosaic('additional_samples_count': 3, 'non_empty_targets': False, 'prob': 1.0, 'input_dim': (640, 640), 'enable_mosaic': True, 'border_value': 114),\n",
+              " DetectionRandomAffine('additional_samples_count': 0, 'non_empty_targets': False, 'degrees': 10.0, 'translate': 0.1, 'scale': [0.1, 2], 'shear': 2.0, 'target_size': (640, 640), 'enable': True, 'filter_box_candidates': True, 'wh_thr': 2, 'ar_thr': 20, 'area_thr': 0.1, 'border_value': 114),\n",
+              " DetectionMixup('additional_samples_count': 1, 'non_empty_targets': True, 'input_dim': (640, 640), 'mixup_scale': [0.5, 1.5], 'prob': 1.0, 'enable_mixup': True, 'flip_prob': 0.5, 'border_value': 114),\n",
+              " DetectionHSV('additional_samples_count': 0, 'non_empty_targets': False, 'prob': 1.0, 'hgain': 5, 'sgain': 30, 'vgain': 30, 'bgr_channels': (0, 1, 2), '_additional_channels_warned': False),\n",
+              " DetectionHorizontalFlip('additional_samples_count': 0, 'non_empty_targets': False, 'prob': 0.5),\n",
+              " DetectionPaddedRescale('additional_samples_count': 0, 'non_empty_targets': False, 'swap': (2, 0, 1), 'input_dim': (640, 640), 'pad_value': 114),\n",
+              " DetectionTargetsFormatTransform('additional_samples_count': 0, 'non_empty_targets': False, 'input_format': OrderedDict([('bboxes', name=bboxes length=4 format=<super_gradients.training.datasets.data_formats.bbox_formats.xyxy.XYXYCoordinateFormat object at 0x7eb58b56dbd0>), ('labels', name=labels length=1)]), 'output_format': OrderedDict([('labels', name=labels length=1), ('bboxes', name=bboxes length=4 format=<super_gradients.training.datasets.data_formats.bbox_formats.cxcywh.CXCYWHCoordinateFormat object at 0x7eb58b59cb20>)]), 'min_bbox_edge_size': 1, 'input_dim': (640, 640), 'targets_format_converter': <super_gradients.training.datasets.data_formats.format_converter.ConcatenatedTensorFormatConverter object at 0x7eb5888c35b0>)]"
+            ]
+          },
+          "execution_count": 10,
+          "metadata": {},
+          "output_type": "execute_result"
+        }
+      ],
+      "source": [
+        "train_data.dataset.transforms\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "KMA_uQ0OD4Ur",
+        "outputId": "bac942f7-5de1-497b-eb9e-9a8da98095e3"
+      },
+      "outputs": [
+        {
+          "data": {
+            "text/plain": [
+              "{'DetectionRandomAffine': {'degrees': 10.0, 'translate': 0.1, 'scales': [0.1, 2], 'shear': 2.0, 'target_size': [640, 640], 'filter_box_candidates': True, 'wh_thr': 2, 'area_thr': 0.1, 'ar_thr': 20}}"
+            ]
+          },
+          "execution_count": 11,
+          "metadata": {},
+          "output_type": "execute_result"
+        }
+      ],
+      "source": [
+        "train_data.dataset.dataset_params['transforms'][1]"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "vQHQKYKpEAYl"
+      },
+      "outputs": [],
+      "source": [
+        "train_data.dataset.dataset_params['transforms'][1]['DetectionRandomAffine']['degrees'] = 10.42\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "JMcCyrlPELQ1"
+      },
+      "outputs": [],
+      "source": [
+        "train_data.dataset.plot()\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "3NVL_LwcEPvR"
+      },
+      "outputs": [],
+      "source": [
+        "model = models.get('yolo_nas_s',\n",
+        "                   num_classes=len(dataset_params['classes']),\n",
+        "                   pretrained_weights=\"coco\"\n",
+        "                   )"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "nzKdXOGYEU3R"
+      },
+      "outputs": [],
+      "source": [
+        "train_params = {\n",
+        "    # ENABLING SILENT MODE\n",
+        "    'silent_mode': True,\n",
+        "    \"average_best_models\":True,\n",
+        "    \"warmup_mode\": \"linear_epoch_step\",\n",
+        "    \"warmup_initial_lr\": 1e-6,\n",
+        "    \"lr_warmup_epochs\": 3,\n",
+        "    \"initial_lr\": 5e-4,\n",
+        "    \"lr_mode\": \"cosine\",\n",
+        "    \"cosine_final_lr_ratio\": 0.1,\n",
+        "    \"optimizer\": \"Adam\",\n",
+        "    \"optimizer_params\": {\"weight_decay\": 0.0001},\n",
+        "    \"zero_weight_decay_on_bias_and_bn\": True,\n",
+        "    \"ema\": True,\n",
+        "    \"ema_params\": {\"decay\": 0.9, \"decay_type\": \"threshold\"},\n",
+        "    # ONLY TRAINING FOR 10 EPOCHS FOR THIS EXAMPLE NOTEBOOK\n",
+        "    \"max_epochs\": 10,\n",
+        "    \"mixed_precision\": True,\n",
+        "    \"loss\": PPYoloELoss(\n",
+        "        use_static_assigner=False,\n",
+        "        # NOTE: num_classes needs to be defined here\n",
+        "        num_classes=len(dataset_params['classes']),\n",
+        "        reg_max=16\n",
+        "    ),\n",
+        "    \"valid_metrics_list\": [\n",
+        "        DetectionMetrics_050(\n",
+        "             score_thres=0.1,\n",
+        "            top_k_predictions=300,\n",
+        "            # NOTE: num_classes needs to be defined here\n",
+        "            num_cls=len(dataset_params['classes']),\n",
+        "            normalize_targets=True,\n",
+        "            post_prediction_callback=PPYoloEPostPredictionCallback(\n",
+        "                score_threshold=0.01,\n",
+        "                nms_top_k=1000,\n",
+        "                max_predictions=300,\n",
+        "                nms_threshold=0.7\n",
+        "            )\n",
+        "        )\n",
+        "    ],\n",
+        "    \"metric_to_watch\": 'mAP@0.50'\n",
+        "}"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "MZnwk0KrEb8V",
+        "outputId": "9665a933-f881-4d1d-eab5-822636e660ee"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "Downloading...\n",
+            "From: https://drive.google.com/uc?id=1crFwrpMF1OlaJ0ZCZjBNRo9llLEVR8VQ&confirm=t\n",
+            "To: /content/demo.mp4\n",
+            " 79% 34.1M/42.9M [00:01<00:00, 28.9MB/s]"
+          ]
+        }
+      ],
+      "source": [
+        "!gdown \"https://drive.google.com/uc?id=1crFwrpMF1OlaJ0ZCZjBNRo9llLEVR8VQ&confirm=t\"\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "nhaUk5W7EkJ1",
+        "outputId": "8d08e40d-05a3-462d-b5ce-f53533e739fb"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "Downloading...\n",
+            "From: https://drive.google.com/uc?id=1cTIBNQ1R_7JAOURVv9cJ6P935ym_IkZ0&confirm=t\n",
+            "To: /content/demo3.mp4\n",
+            "100% 20.3M/20.3M [00:00<00:00, 52.5MB/s]\n"
+          ]
+        }
+      ],
+      "source": [
+        "!gdown \"https://drive.google.com/uc?id=1cTIBNQ1R_7JAOURVv9cJ6P935ym_IkZ0&confirm=t\"\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "nf793h_0EnyO",
+        "outputId": "24a0a126-96e3-496b-8184-df5777321d48"
+      },
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "Downloading...\n",
+            "From: https://drive.google.com/uc?id=15D71z_g8uxZfXSx2ya3sy4n2-eg53meH&confirm=t\n",
+            "To: /content/demonew.mp4\n",
+            "\r  0% 0.00/5.39M [00:00<?, ?B/s]\r 88% 4.72M/5.39M [00:00<00:00, 29.4MB/s]\r100% 5.39M/5.39M [00:00<00:00, 33.0MB/s]\n"
+          ]
+        }
+      ],
+      "source": [
+        "!gdown \"https://drive.google.com/uc?id=15D71z_g8uxZfXSx2ya3sy4n2-eg53meH&confirm=t\"\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 1,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ak_uoh9aEr-s",
+        "outputId": "49075202-5cb2-495c-a257-5bb937dcfc03"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Downloading...\n",
+            "From: https://drive.google.com/uc?id=1iYW9ZAsYAaHkWZhFVwQh_ch41TMt30-Q&confirm=t\n",
+            "To: /content/demonew2.mp4\n",
+            "\r  0% 0.00/1.87M [00:00<?, ?B/s]\r100% 1.87M/1.87M [00:00<00:00, 144MB/s]\n"
+          ]
+        }
+      ],
+      "source": [
+        "!gdown \"https://drive.google.com/uc?id=1iYW9ZAsYAaHkWZhFVwQh_ch41TMt30-Q&confirm=t\"\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "trainer.train(model=model,\n",
+        "              training_params=train_params,\n",
+        "              train_loader=train_data,\n",
+        "              valid_loader=val_data)\n",
+        ""
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 245
+        },
+        "id": "iaBrl6lNNkgD",
+        "outputId": "f6c33baf-e62e-4a9c-9223-b3af4dbdf38e"
+      },
+      "execution_count": 12,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "NameError",
+          "evalue": "ignored",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mNameError\u001b[0m                                 Traceback (most recent call last)",
+            "\u001b[0;32m<ipython-input-12-0b2908577f6c>\u001b[0m in \u001b[0;36m<cell line: 1>\u001b[0;34m()\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m trainer.train(model=model, \n\u001b[0m\u001b[1;32m      2\u001b[0m               \u001b[0mtraining_params\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mtrain_params\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      3\u001b[0m               \u001b[0mtrain_loader\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mtrain_data\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      4\u001b[0m               valid_loader=val_data)\n\u001b[1;32m      5\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mNameError\u001b[0m: name 'trainer' is not defined"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 10,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 175
+        },
+        "id": "NOLaRkXuE5HZ",
+        "outputId": "68dc7875-f05c-4be6-b29d-68a907c1d966"
+      },
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "NameError",
+          "evalue": "ignored",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mNameError\u001b[0m                                 Traceback (most recent call last)",
+            "\u001b[0;32m<ipython-input-10-c683060e5a05>\u001b[0m in \u001b[0;36m<cell line: 1>\u001b[0;34m()\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mtrainer\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mTrainer\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m  \u001b[0;31m# Create an instance of the Trainer class\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m",
+            "\u001b[0;31mNameError\u001b[0m: name 'Trainer' is not defined"
+          ]
+        }
+      ],
+      "source": []
+    }
+  ],
+  "metadata": {
+    "accelerator": "GPU",
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyM5smteLuoskAgjHJufCK1y",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
